@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
@@ -7,6 +8,8 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const DB_PATH = process.env.DB_PATH || './securitymanagementsystem.db';
 
 // Middleware
 app.use(cors());
@@ -14,14 +17,15 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 
 // Database Configuration (SQLite)
-const dbPath = path.join(__dirname, 'securitymanagementsystem.db');
+const dbPath = path.join(__dirname, DB_PATH);
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('\n❌ Database Connection ERROR:\n');
         console.error('   Message:', err.message);
         process.exit(1);
     } else {
-        console.log('\n✅ Connected to SQLite Database:', dbPath, '\n');
+        console.log('\n✅ Environment:', NODE_ENV);
+        console.log('✅ Connected to SQLite Database:', dbPath, '\n');
         // Enable foreign keys
         db.run('PRAGMA foreign_keys = ON');
         // Initialize database schema

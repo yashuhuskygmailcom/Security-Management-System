@@ -61,7 +61,17 @@
                     <button class="btn btn-success" onclick="openModal()">➕ Create Incident</button>
                 </div>
                 
-                <table>
+                <div class="search-container">
+                    <div class="search-box">
+                        <input type="text" id="incidentSearch" placeholder="🔍 Search incidents by threat, action, or status...">
+                    </div>
+                    <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="Open">🔴 Open</option>
+                        <option value="In Progress">🟡 In Progress</option>
+                        <option value="Resolved">🟢 Resolved</option>
+                    </select>
+                </div>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -114,8 +124,8 @@
                 <button type="submit" class="btn btn-primary">Save Incident</button>
             </form>
         </div>
-    </div>
     
+    <script src="js/utils.js"></script>
     <script src="js/main.js"></script>
     <script>
         function initMobileMenu() {
@@ -167,8 +177,18 @@
         document.getElementById('userName').textContent = user.Name;
         document.getElementById('userRole').textContent = user.Role;
         
-        loadIncidents();
-        loadThreatsForSelect();
+        let allIncidents = [];
+        
+        async function initPage() {
+            await loadThreatsForSelect();
+            await loadIncidents();
+            setupSortableColumns('incidentsTable');
+            
+            const searchInput = document.getElementById('incidentSearch');
+            searchInput.addEventListener('keyup', debounce(() => {
+                applyFilters();
+            }, 300));
+        }
         
         async function loadThreatsForSelect() {
             try {
@@ -183,14 +203,16 @@
                     select.appendChild(option);
                 });
             } catch (error) {
-                console.error('Error loading threats:', error);
+                showToast('Error loading threats', 'error');
             }
         }
         
         async function loadIncidents() {
             try {
+                showLoading();
                 const response = await fetch('/api/incidents');
                 const incidents = await response.json();
+                allIncidents = incidents;
                 
                 // Update stats
                 document.getElementById('totalIncidents').textContent = incidents.length;
@@ -198,29 +220,57 @@
                 document.getElementById('inProgressIncidents').textContent = incidents.filter(i => i.Status === 'In Progress').length;
                 document.getElementById('resolvedIncidents').textContent = incidents.filter(i => i.Status === 'Resolved').length;
                 
-                const tbody = document.getElementById('incidentsTable');
-                if (incidents.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No incidents found</td></tr>';
-                    return;
-                }
-                
-                tbody.innerHTML = incidents.map(incident => `
-                    <tr>
-                        <td>${incident.IncidentID}</td>
-                        <td>${incident.ThreatType}</td>
-                        <td><span class="badge badge-${incident.Severity.toLowerCase()}">${incident.Severity}</span></td>
-                        <td>${incident.ActionTaken || 'N/A'}</td>
-                        <td><span class="badge badge-${incident.Status.toLowerCase().replace(' ', '-')}">${incident.Status}</span></td>
-                        <td>${new Date(incident.CreatedAt).toLocaleDateString()}</td>
-                        <td class="action-buttons">
-                            <button class="btn btn-warning btn-sm" onclick="editIncident(${incident.IncidentID}, ${incident.ThreatID}, '${incident.ActionTaken || ''}', '${incident.Status}')">Edit</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteIncident(${incident.IncidentID})">Delete</button>
-                        </td>
-                    </tr>
-                `).join('');
+                renderIncidents(incidents);
             } catch (error) {
-                showMessage('Error loading incidents', 'error');
+                showToast('Error loading incidents', 'error');
+            } finally {
+                hideLoading();
             }
+        }
+        
+        function renderIncidents(incidents) {
+            const tbody = document.getElementById('incidentsTable');
+            if (incidents.length === 0) {
+                tbody.innerHTML = '<tr class="no-results"><td colspan="7"><div class="no-results-icon">🔍</div><div>No incidents found</div></td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = incidents.map(incident => `
+                <tr>
+                    <td>${incident.IncidentID}</td>
+                    <td>${incident.ThreatType}</td>
+                    <td><span class="badge badge-${incident.Severity.toLowerCase()}">${incident.Severity}</span></td>
+                    <td>${incident.ActionTaken || 'N/A'}</td>
+                    <td><span class="badge badge-${incident.Status.toLowerCase().replace(' ', '-')}">${incident.Status}</span></td>
+                    <td>${formatDate(incident.CreatedAt)}</td>
+                    <td class="action-buttons">
+                        <button class="btn btn-warning btn-sm" onclick="editIncident(${incident.IncidentID}, ${incident.ThreatID}, '${incident.ActionTaken || ''}', '${incident.Status}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteIncident(${incident.IncidentID})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function applyFilters() {
+            const searchValue = document.getElementById('incidentSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            let filtered = allIncidents;
+            
+            if (searchValue) {
+                filtered = filtered.filter(i => 
+                    i.ThreatType.toLowerCase().includes(searchValue) ||
+                    i.ActionTaken?.toLowerCase().includes(searchValue) ||
+                    i.Status.toLowerCase().includes(searchValue)
+                );
+            }
+            
+            if (statusFilter) {
+                filtered = filtered.filter(i => i.Status === statusFilter);
+            }
+            
+            renderIncidents(filtered);
+            setupSortableColumns('incidentsTable');
         }
         
         function openModal() {
@@ -247,41 +297,44 @@
             if (!confirm('Are you sure you want to delete this incident?')) return;
             
             try {
+                showLoading();
                 const response = await fetch(`/api/incidents/${id}`, {
                     method: 'DELETE'
                 });
                 
                 if (response.ok) {
-                    showMessage('Incident deleted successfully!', 'success');
-                    loadIncidents();
+                    showToast('Incident deleted successfully!', 'success');
+                    await loadIncidents();
                 } else {
                     const data = await response.json();
-                    showMessage(data.error || 'Error deleting incident', 'error');
+                    showToast(data.error || 'Error deleting incident', 'error');
                 }
             } catch (error) {
-                showMessage('Error connecting to server', 'error');
+                showToast('Error connecting to server', 'error');
+            } finally {
+                hideLoading();
             }
         }
         
         document.getElementById('incidentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const submitBtn = e.target.querySelector('[type="submit"]');
             const incidentId = document.getElementById('incidentId').value;
             const threatId = document.getElementById('threatId').value;
             const actionTaken = document.getElementById('actionTaken').value;
             const status = document.getElementById('status').value;
             
             try {
+                setButtonLoading(submitBtn, true);
                 let response;
                 if (incidentId) {
-                    // Update existing incident
                     response = await fetch(`/api/incidents/${incidentId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ActionTaken: actionTaken, Status: status })
                     });
                 } else {
-                    // Create new incident
                     response = await fetch('/api/incidents', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -292,26 +345,18 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showMessage(incidentId ? 'Incident updated successfully!' : 'Incident created successfully!', 'success');
+                    showToast(incidentId ? 'Incident updated successfully!' : 'Incident created successfully!', 'success');
                     closeModal();
-                    loadIncidents();
+                    await loadIncidents();
                 } else {
-                    showMessage(data.error || 'Error saving incident', 'error');
+                    showToast(data.error || 'Error saving incident', 'error');
                 }
             } catch (error) {
-                showMessage('Error connecting to server', 'error');
+                showToast('Error connecting to server', 'error');
+            } finally {
+                setButtonLoading(submitBtn, false);
             }
         });
-        
-        function showMessage(text, type) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.className = `message ${type}`;
-            messageDiv.textContent = text;
-            messageDiv.style.display = 'block';
-            setTimeout(() => {
-                messageDiv.style.display = 'none';
-            }, 3000);
-        }
         
         window.onclick = function(event) {
             const modal = document.getElementById('incidentModal');
@@ -319,7 +364,8 @@
                 closeModal();
             }
         }
-    </script>
+        
+        initPage();
 </body>
 </html>
 
