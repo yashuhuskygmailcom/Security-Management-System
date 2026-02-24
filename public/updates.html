@@ -55,15 +55,17 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Vulnerability</th>
+                            <th>Update ID</th>
+                            <th>Threat ID</th>
+                            <th>Threat Type</th>
+                            <th>Update Name</th>
                             <th>Release Date</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="updatesTable">
                         <tr>
-                            <td colspan="4" style="text-align: center;">Loading...</td>
+                            <td colspan="6" style="text-align: center;">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -75,21 +77,29 @@
     <div id="updateModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Add Security Update</h2>
+                <h2>🔧 Add Security Update</h2>
                 <span class="close" onclick="closeModal()">&times;</span>
             </div>
             <form id="updateForm">
                 <div class="form-group">
-                    <label for="vulnerabilityId">Related Vulnerability</label>
-                    <select id="vulnerabilityId" name="vulnerabilityId" required>
-                        <option value="">Select a vulnerability</option>
+                    <label for="threatId">🚨 Threat Log ID</label>
+                    <select id="threatId" name="threatId" required>
+                        <option value="">-- Select Threat Log --</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="releaseDate">Release Date</label>
+                    <label for="updateName">📝 Update Name</label>
+                    <input type="text" id="updateName" name="updateName" placeholder="e.g., Security Patch v1.2" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">📋 Description</label>
+                    <textarea id="description" name="description" placeholder="Describe the update..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="releaseDate">📅 Release Date</label>
                     <input type="date" id="releaseDate" name="releaseDate" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Add Update</button>
+                <button type="submit" class="btn btn-primary">➕ Add Update</button>
             </form>
         </div>
     </div>
@@ -108,22 +118,22 @@
         document.getElementById('releaseDate').valueAsDate = new Date();
         
         loadUpdates();
-        loadVulnerabilitiesForSelect();
         
-        async function loadVulnerabilitiesForSelect() {
+        async function loadThreats() {
             try {
-                const response = await fetch('/api/vulnerabilities');
-                const vulns = await response.json();
+                const response = await fetch('/api/threats');
+                const threats = await response.json();
                 
-                const select = document.getElementById('vulnerabilityId');
-                vulns.forEach(vuln => {
+                const select = document.getElementById('threatId');
+                select.innerHTML = '<option value="">-- Select Threat Log --</option>';
+                threats.forEach(threat => {
                     const option = document.createElement('option');
-                    option.value = vuln.VulnerabilityID;
-                    option.textContent = vuln.Description;
+                    option.value = threat.ThreatID;
+                    option.textContent = `[ID: ${threat.ThreatID}] ${threat.Type} - ${threat.Severity} Severity`;
                     select.appendChild(option);
                 });
             } catch (error) {
-                console.error('Error loading vulnerabilities:', error);
+                console.error('Error loading threats:', error);
             }
         }
         
@@ -145,14 +155,16 @@
                 
                 const tbody = document.getElementById('updatesTable');
                 if (updates.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No security updates found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No security updates found</td></tr>';
                     return;
                 }
                 
                 tbody.innerHTML = updates.map(update => `
                     <tr>
-                        <td>${update.UpdateID}</td>
-                        <td>${update.VulnerabilityDescription}</td>
+                        <td><strong>${update.UpdateID}</strong></td>
+                        <td><span class="badge" style="background: #667eea; color: white;">Threat #${update.ThreatID}</span></td>
+                        <td>${update.ThreatType}</td>
+                        <td><strong>${update.UpdateName}</strong><br><small>${update.Description || ''}</small></td>
                         <td>${new Date(update.ReleaseDate).toLocaleDateString()}</td>
                         <td class="action-buttons">
                             <button class="btn btn-danger btn-sm" onclick="deleteUpdate(${update.UpdateID})">Delete</button>
@@ -168,6 +180,7 @@
             document.getElementById('updateModal').style.display = 'block';
             document.getElementById('updateForm').reset();
             document.getElementById('releaseDate').valueAsDate = new Date();
+            loadThreats();
         }
         
         function closeModal() {
@@ -183,7 +196,7 @@
                 });
                 
                 if (response.ok) {
-                    showMessage('Update deleted successfully!', 'success');
+                    showMessage('✅ Update deleted successfully!', 'success');
                     loadUpdates();
                 } else {
                     const data = await response.json();
@@ -197,20 +210,32 @@
         document.getElementById('updateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const vulnerabilityId = document.getElementById('vulnerabilityId').value;
+            const threatId = document.getElementById('threatId').value;
+            const updateName = document.getElementById('updateName').value;
+            const description = document.getElementById('description').value;
             const releaseDate = document.getElementById('releaseDate').value;
+            
+            if (!threatId) {
+                showMessage('Please select a Threat Log', 'error');
+                return;
+            }
             
             try {
                 const response = await fetch('/api/updates', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ VulnerabilityID: vulnerabilityId, ReleaseDate: releaseDate })
+                    body: JSON.stringify({ 
+                        ThreatID: parseInt(threatId),
+                        UpdateName: updateName,
+                        Description: description,
+                        ReleaseDate: releaseDate 
+                    })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showMessage('Security update added successfully!', 'success');
+                    showMessage('✅ Security update added successfully!', 'success');
                     closeModal();
                     loadUpdates();
                 } else {

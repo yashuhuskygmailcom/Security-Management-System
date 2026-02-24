@@ -64,17 +64,22 @@ function initializeDatabase() {
         // Vulnerabilities Table
         db.run(`CREATE TABLE IF NOT EXISTS Vulnerabilities (
             VulnerabilityID INTEGER PRIMARY KEY AUTOINCREMENT,
+            ThreatID INTEGER NOT NULL,
             Description TEXT NOT NULL,
             PatchAvailable BOOLEAN DEFAULT 0,
-            CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (ThreatID) REFERENCES ThreatLogs(ThreatID) ON DELETE CASCADE
         )`);
 
         // SecurityUpdates Table
         db.run(`CREATE TABLE IF NOT EXISTS SecurityUpdates (
             UpdateID INTEGER PRIMARY KEY AUTOINCREMENT,
-            VulnerabilityID INTEGER NOT NULL,
+            ThreatID INTEGER NOT NULL,
+            UpdateName TEXT NOT NULL,
+            Description TEXT,
             ReleaseDate DATE NOT NULL,
-            FOREIGN KEY (VulnerabilityID) REFERENCES Vulnerabilities(VulnerabilityID) ON DELETE CASCADE
+            CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (ThreatID) REFERENCES ThreatLogs(ThreatID) ON DELETE CASCADE
         )`, () => {
             // After all tables are created, insert sample data
             insertSampleData();
@@ -105,16 +110,16 @@ function insertSampleData() {
                     (2, 'Blocked suspicious email', 'In Progress'),
                     (3, 'Applied input sanitization', 'Open')`, () => {
 
-                    // Then insert vulnerabilities
-                    db.run(`INSERT INTO Vulnerabilities (Description, PatchAvailable) VALUES 
-                        ('SQL Injection in login form', 1),
-                        ('XSS vulnerability in comments', 0),
-                        ('Outdated SSL certificate', 1)`, () => {
+                    // Then insert vulnerabilities (linked to threats)
+                    db.run(`INSERT INTO Vulnerabilities (ThreatID, Description, PatchAvailable) VALUES 
+                        (1, 'Malware infection in system files', 1),
+                        (2, 'Email security bypass vulnerability', 0),
+                        (3, 'SQL Injection in login form', 1)`, () => {
 
-                        // Finally insert security updates
-                        db.run(`INSERT INTO SecurityUpdates (VulnerabilityID, ReleaseDate) VALUES 
-                            (1, '2024-01-20'),
-                            (3, '2024-01-22')`, () => {
+                        // Finally insert security updates (linked to threats)
+                        db.run(`INSERT INTO SecurityUpdates (ThreatID, UpdateName, Description, ReleaseDate) VALUES 
+                            (1, 'Antivirus Definition Update v2.1', 'Updated signature database', '2024-01-20'),
+                            (3, 'Security Patch v1.5', 'Fixed SQL injection vulnerability', '2024-01-22')`, () => {
                             console.log('✅ Sample data inserted\n');
                         });
                     });
@@ -226,6 +231,19 @@ app.delete('/api/threats/:id', (req, res) => {
     });
 });
 
+// GET /threats/active - Get all active threats (for dropdown selection)
+app.get('/api/threats/active', (req, res) => {
+    const sql = `
+        SELECT ThreatID, Type, Severity, DetectedDate
+        FROM ThreatLogs
+        ORDER BY ThreatID DESC
+    `;
+    db.all(sql, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+});
+
 // -------------------- INCIDENTS API --------------------
 
 // POST /incidents - Create new incident
@@ -285,9 +303,9 @@ app.delete('/api/incidents/:id', (req, res) => {
 
 // POST /vulnerabilities - Create new vulnerability
 app.post('/api/vulnerabilities', (req, res) => {
-    const { Description, PatchAvailable } = req.body;
-    const sql = 'INSERT INTO Vulnerabilities (Description, PatchAvailable) VALUES (?, ?)';
-    db.run(sql, [Description, PatchAvailable ? 1 : 0], (err) => {
+    const { ThreatID, Description, PatchAvailable } = req.body;
+    const sql = 'INSERT INTO Vulnerabilities (ThreatID, Description, PatchAvailable) VALUES (?, ?, ?)';
+    db.run(sql, [ThreatID, Description, PatchAvailable ? 1 : 0], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Vulnerability created successfully', vulnerabilityId: this.lastID });
     });
@@ -295,7 +313,13 @@ app.post('/api/vulnerabilities', (req, res) => {
 
 // GET /vulnerabilities - Get all vulnerabilities
 app.get('/api/vulnerabilities', (req, res) => {
-    const sql = 'SELECT * FROM Vulnerabilities ORDER BY VulnerabilityID DESC';
+    const sql = `
+        SELECT v.VulnerabilityID, v.ThreatID, v.Description, v.PatchAvailable, v.CreatedAt,
+               t.Type as ThreatType, t.Severity
+        FROM Vulnerabilities v
+        JOIN ThreatLogs t ON v.ThreatID = t.ThreatID
+        ORDER BY v.VulnerabilityID DESC
+    `;
     db.all(sql, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         // Convert boolean to proper format
@@ -316,13 +340,31 @@ app.delete('/api/vulnerabilities/:id', (req, res) => {
     });
 });
 
+// GET /vulnerabilities/threat/:id - Get vulnerabilities for specific threat
+app.get('/api/vulnerabilities/threat/:id', (req, res) => {
+    const sql = `
+        SELECT v.VulnerabilityID, v.ThreatID, v.Description, v.PatchAvailable, v.CreatedAt
+        FROM Vulnerabilities v
+        WHERE v.ThreatID = ?
+        ORDER BY v.VulnerabilityID DESC
+    `;
+    db.all(sql, [req.params.id], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const formatted = results.map(v => ({
+            ...v,
+            PatchAvailable: Boolean(v.PatchAvailable)
+        }));
+        res.json(formatted);
+    });
+});
+
 // -------------------- SECURITY UPDATES API --------------------
 
 // POST /updates - Create new security update
 app.post('/api/updates', (req, res) => {
-    const { VulnerabilityID, ReleaseDate } = req.body;
-    const sql = 'INSERT INTO SecurityUpdates (VulnerabilityID, ReleaseDate) VALUES (?, ?)';
-    db.run(sql, [VulnerabilityID, ReleaseDate], (err) => {
+    const { ThreatID, UpdateName, Description, ReleaseDate } = req.body;
+    const sql = 'INSERT INTO SecurityUpdates (ThreatID, UpdateName, Description, ReleaseDate) VALUES (?, ?, ?, ?)';
+    db.run(sql, [ThreatID, UpdateName, Description, ReleaseDate], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Security update created successfully', updateId: this.lastID });
     });
@@ -331,10 +373,10 @@ app.post('/api/updates', (req, res) => {
 // GET /updates - Get all security updates
 app.get('/api/updates', (req, res) => {
     const sql = `
-        SELECT u.UpdateID, u.VulnerabilityID, u.ReleaseDate,
-               v.Description as VulnerabilityDescription
+        SELECT u.UpdateID, u.ThreatID, u.UpdateName, u.Description, u.ReleaseDate, u.CreatedAt,
+               t.Type as ThreatType, t.Severity
         FROM SecurityUpdates u
-        JOIN Vulnerabilities v ON u.VulnerabilityID = v.VulnerabilityID
+        JOIN ThreatLogs t ON u.ThreatID = t.ThreatID
         ORDER BY u.UpdateID DESC
     `;
     db.all(sql, (err, results) => {
@@ -343,9 +385,9 @@ app.get('/api/updates', (req, res) => {
     });
 });
 
-// GET /updates/vulnerability/:id - Get updates for specific vulnerability
-app.get('/api/updates/vulnerability/:id', (req, res) => {
-    const sql = 'SELECT * FROM SecurityUpdates WHERE VulnerabilityID = ?';
+// GET /updates/threat/:id - Get updates for specific threat
+app.get('/api/updates/threat/:id', (req, res) => {
+    const sql = 'SELECT * FROM SecurityUpdates WHERE ThreatID = ?';
     db.all(sql, [req.params.id], (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results);

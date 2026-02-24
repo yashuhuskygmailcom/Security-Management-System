@@ -59,7 +59,9 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>Vuln ID</th>
+                            <th>Threat ID</th>
+                            <th>Threat Type</th>
                             <th>Description</th>
                             <th>Patch Available</th>
                             <th>Created At</th>
@@ -68,7 +70,7 @@
                     </thead>
                     <tbody id="vulnsTable">
                         <tr>
-                            <td colspan="5" style="text-align: center;">Loading...</td>
+                            <td colspan="7" style="text-align: center;">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -80,22 +82,28 @@
     <div id="vulnModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Add New Vulnerability</h2>
+                <h2>🔓 Add New Vulnerability</h2>
                 <span class="close" onclick="closeModal()">&times;</span>
             </div>
             <form id="vulnForm">
                 <div class="form-group">
-                    <label for="description">Description</label>
+                    <label for="threatId">🚨 Threat Log ID</label>
+                    <select id="threatId" name="threatId" required>
+                        <option value="">-- Select Threat Log --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">📝 Description</label>
                     <textarea id="description" name="description" placeholder="Describe the vulnerability..." required></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="patchAvailable">Patch Available</label>
+                    <label for="patchAvailable">✅ Patch Available</label>
                     <select id="patchAvailable" name="patchAvailable" required>
                         <option value="false">No</option>
                         <option value="true">Yes</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary">Add Vulnerability</button>
+                <button type="submit" class="btn btn-primary">➕ Add Vulnerability</button>
             </form>
         </div>
     </div>
@@ -112,6 +120,24 @@
         
         loadVulnerabilities();
         
+        async function loadThreats() {
+            try {
+                const response = await fetch('/api/threats');
+                const threats = await response.json();
+                
+                const select = document.getElementById('threatId');
+                select.innerHTML = '<option value="">-- Select Threat Log --</option>';
+                threats.forEach(threat => {
+                    const option = document.createElement('option');
+                    option.value = threat.ThreatID;
+                    option.textContent = `[ID: ${threat.ThreatID}] ${threat.Type} - ${threat.Severity} Severity`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading threats:', error);
+            }
+        }
+        
         async function loadVulnerabilities() {
             try {
                 const response = await fetch('/api/vulnerabilities');
@@ -124,15 +150,17 @@
                 
                 const tbody = document.getElementById('vulnsTable');
                 if (vulns.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No vulnerabilities found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No vulnerabilities found</td></tr>';
                     return;
                 }
                 
                 tbody.innerHTML = vulns.map(vuln => `
                     <tr>
-                        <td>${vuln.VulnerabilityID}</td>
+                        <td><strong>${vuln.VulnerabilityID}</strong></td>
+                        <td><span class="badge" style="background: #667eea; color: white;">Threat #${vuln.ThreatID}</span></td>
+                        <td>${vuln.ThreatType}</td>
                         <td>${vuln.Description}</td>
-                        <td><span class="badge badge-${vuln.PatchAvailable}">${vuln.PatchAvailable ? 'Yes' : 'No'}</span></td>
+                        <td><span class="badge badge-${vuln.PatchAvailable}">${vuln.PatchAvailable ? '✅ Yes' : '❌ No'}</span></td>
                         <td>${new Date(vuln.CreatedAt).toLocaleDateString()}</td>
                         <td class="action-buttons">
                             <button class="btn btn-danger btn-sm" onclick="deleteVulnerability(${vuln.VulnerabilityID})">Delete</button>
@@ -147,6 +175,7 @@
         function openModal() {
             document.getElementById('vulnModal').style.display = 'block';
             document.getElementById('vulnForm').reset();
+            loadThreats();
         }
         
         function closeModal() {
@@ -156,20 +185,30 @@
         document.getElementById('vulnForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const threatId = document.getElementById('threatId').value;
             const description = document.getElementById('description').value;
             const patchAvailable = document.getElementById('patchAvailable').value === 'true';
+            
+            if (!threatId) {
+                showMessage('Please select a Threat Log', 'error');
+                return;
+            }
             
             try {
                 const response = await fetch('/api/vulnerabilities', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Description: description, PatchAvailable: patchAvailable })
+                    body: JSON.stringify({ 
+                        ThreatID: parseInt(threatId),
+                        Description: description, 
+                        PatchAvailable: patchAvailable 
+                    })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showMessage('Vulnerability added successfully!', 'success');
+                    showMessage('✅ Vulnerability added successfully!', 'success');
                     closeModal();
                     loadVulnerabilities();
                 } else {
@@ -189,7 +228,7 @@
                 });
                 
                 if (response.ok) {
-                    showMessage('Vulnerability deleted successfully!', 'success');
+                    showMessage('✅ Vulnerability deleted successfully!', 'success');
                     loadVulnerabilities();
                 } else {
                     const data = await response.json();
