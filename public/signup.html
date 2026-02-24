@@ -3,25 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Management System - Login</title>
+    <title>Sign Up - Security Management System</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="login-container">
         <div class="login-box">
-            <div class="logo">�</div>
-            <h1>Security Management System</h1>
+            <div class="logo">✨</div>
+            <h1>Create Account</h1>
             <p style="text-align: center; color: #666; margin-bottom: 30px; font-size: 14px;">
-                Enterprise Security & Threat Management Platform
+                Join the Security Management Platform
             </p>
             
-            <form id="loginForm">
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="name">👤 Full Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        placeholder="Enter your full name"
+                        required
+                    >
+                </div>
+
                 <div class="form-group">
                     <label for="email">📧 Email Address</label>
-                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="Enter your email"
+                        required
+                    >
                 </div>
+
                 <div class="form-group">
-                    <label for="role">👤 Select Role</label>
+                    <label for="role">👨‍💼 Select Role</label>
                     <select id="role" name="role" required>
                         <option value="">-- Choose Role --</option>
                         <option value="Admin">Admin</option>
@@ -29,66 +47,68 @@
                         <option value="User">User</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary">🚀 Sign In</button>
+
+                <button type="submit" class="btn btn-primary">
+                    📝 Create Account
+                </button>
             </form>
-            <div id="message" class="message" style="display: none;"></div>
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #999;">
-                <p style="font-weight: 600; margin-bottom: 12px;">Demo Credentials:</p>
-                <p style="margin: 6px 0;"><strong>👨‍💼 Admin:</strong> admin@security.com</p>
-                <p style="margin: 6px 0;"><strong>👨‍🔬 Analyst:</strong> john@security.com</p>
-                <p style="margin: 6px 0;"><strong>👤 User:</strong> jane@security.com</p>
-            </div>
+
+            <div id="message" class="message" style="display: none; margin-top: 20px;"></div>
 
             <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
-                <p style="color: #666; font-size: 14px; margin-bottom: 12px;">Don't have an account?</p>
-                <a href="signup.html" style="color: #667eea; text-decoration: none; font-weight: 600;">
-                    📝 Create Account
+                <p style="color: #666; font-size: 14px; margin-bottom: 12px;">Already have an account?</p>
+                <a href="index.html" style="color: #667eea; text-decoration: none; font-weight: 600;">
+                    🔐 Sign In Here
                 </a>
             </div>
         </div>
     </div>
 
+    <script src="js/main.js"></script>
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const role = document.getElementById('role').value;
             const messageDiv = document.getElementById('message');
             
             try {
-                const response = await fetch('/api/login', {
+                const response = await fetch('/api/users', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ Email: email, Role: role })
+                    body: JSON.stringify({ 
+                        Name: name,
+                        Email: email,
+                        Role: role
+                    })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Store user info in sessionStorage
-                    sessionStorage.setItem('user', JSON.stringify(data.user));
                     messageDiv.className = 'message success';
-                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.textContent = '✅ Account created successfully! Redirecting to login...';
                     messageDiv.style.display = 'block';
                     
                     setTimeout(() => {
-                        window.location.href = data.redirect;
-                    }, 1000);
+                        window.location.href = 'index.html';
+                    }, 2000);
                 } else {
                     messageDiv.className = 'message error';
-                    messageDiv.textContent = data.error || 'Login failed';
+                    messageDiv.textContent = '❌ ' + (data.error || 'Failed to create account');
                     messageDiv.style.display = 'block';
                 }
             } catch (error) {
                 messageDiv.className = 'message error';
-                messageDiv.textContent = 'Error connecting to server';
+                messageDiv.textContent = '❌ Error connecting to server';
                 messageDiv.style.display = 'block';
+                console.error('Error:', error);
             }
         });
     </script>
 </body>
 </html>
-
