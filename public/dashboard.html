@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Security Management System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.min.js"></script>
+</head>
+<body>
+    <button class="menu-toggle" id="menuToggle" style="display: none;">☰</button>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h2>🛡️ Security Admin</h2>
+            <nav>
+                <a href="users.html">👥 Users</a>
+                <a href="threats.html">⚠️ Threat Logs</a>
+                <a href="incidents.html">🚨 Incidents</a>
+                <a href="vulnerabilities.html">🔓 Vulnerabilities</a>
+                <a href="updates.html">🔧 Security Updates</a>
+                <a href="dashboard.html" class="active">📊 Dashboard</a>
+                <a href="index.html" class="logout-btn">🚪 Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <h1>📊 Security Dashboard</h1>
+                    <p style="color: #666; margin-top: 8px; font-size: 14px;">Real-time security metrics and analytics</p>
+                </div>
+                <div class="user-info">
+                    <span id="userName">User</span>
+                    <span id="userRole" class="badge badge-warning">Security Analyst</span>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌓</button>
+                </div>
+            </header>
+            
+            <!-- Key Metrics -->
+            <div class="stats-grid">
+                <div class="stat-card" style="border-left-color: #667eea;">
+                    <h3 id="totalThreats" style="color: #667eea;">0</h3>
+                    <p>Total Threats</p>
+                </div>
+                <div class="stat-card" style="border-left-color: #ea4335;">
+                    <h3 id="totalIncidents" style="color: #ea4335;">0</h3>
+                    <p>🚨 Incidents</p>
+                </div>
+                <div class="stat-card" style="border-left-color: #f57c00;">
+                    <h3 id="openIncidents" style="color: #f57c00;">0</h3>
+                    <p>🔴 Open Issues</p>
+                </div>
+                <div class="stat-card" style="border-left-color: #34a853;">
+                    <h3 id="resolvedIncidents" style="color: #34a853;">0</h3>
+                    <p>✅ Resolved</p>
+                </div>
+            </div>
+            
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="card chart-container">
+                    <h2>Threats by Severity</h2>
+                    <canvas id="threatsChart"></canvas>
+                </div>
+                
+                <div class="card chart-container">
+                    <h2>Incidents by Status</h2>
+                    <canvas id="incidentsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="charts-grid">
+                <div class="card chart-container">
+                    <h2>Vulnerabilities by Severity</h2>
+                    <canvas id="vulnerabilitiesChart"></canvas>
+                </div>
+                
+                <div class="card chart-container">
+                    <h2>Recent Activity</h2>
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Summary Tables -->
+            <div class="card">
+                <h2>Top Critical Threats</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Detected By</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="criticalThreatsBody">
+                        <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <script src="js/utils.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        function initMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (window.innerWidth <= 768) {
+                menuToggle.style.display = 'flex';
+            }
+            
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+            });
+            
+            sidebar.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                    }
+                });
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                    }
+                }
+            });
+            
+            window.addEventListener('resize', () => {
+                if (window.innerWidth <= 768) {
+                    menuToggle.style.display = 'flex';
+                    sidebar.classList.remove('active');
+                } else {
+                    menuToggle.style.display = 'none';
+                }
+            });
+        }
+        
+        initMobileMenu();
+        
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'index.html';
+        }
+        
+        document.getElementById('userName').textContent = user.Name;
+        document.getElementById('userRole').textContent = user.Role;
+        
+        // Initialize dark mode from storage
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+        
+        let chartsCache = {};
+        
+        async function initDashboard() {
+            try {
+                showLoading();
+                await Promise.all([
+                    loadThreatsData(),
+                    loadIncidentsData(),
+                    loadVulnerabilitiesData(),
+                    loadActivityData(),
+                    loadCriticalThreats()
+                ]);
+            } catch (error) {
+                showToast('Error loading dashboard data', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        async function loadThreatsData() {
+            try {
+                const response = await fetch('/api/threats');
+                const threats = await response.json();
+                
+                document.getElementById('totalThreats').textContent = threats.length;
+                
+                const severityCounts = {
+                    'Critical': threats.filter(t => t.Severity === 'Critical').length,
+                    'High': threats.filter(t => t.Severity === 'High').length,
+                    'Medium': threats.filter(t => t.Severity === 'Medium').length,
+                    'Low': threats.filter(t => t.Severity === 'Low').length
+                };
+                
+                createChart('threatsChart', 'doughnut', 
+                    Object.keys(severityCounts),
+                    Object.values(severityCounts),
+                    ['#ea4335', '#f57c00', '#fbbc04', '#34a853']
+                );
+            } catch (error) {
+                console.error('Error loading threats:', error);
+            }
+        }
+        
+        async function loadIncidentsData() {
+            try {
+                const response = await fetch('/api/incidents');
+                const incidents = await response.json();
+                
+                document.getElementById('totalIncidents').textContent = incidents.length;
+                document.getElementById('openIncidents').textContent = incidents.filter(i => i.Status === 'Open').length;
+                document.getElementById('resolvedIncidents').textContent = incidents.filter(i => i.Status === 'Resolved').length;
+                
+                const statusCounts = {
+                    'Open': incidents.filter(i => i.Status === 'Open').length,
+                    'In Progress': incidents.filter(i => i.Status === 'In Progress').length,
+                    'Resolved': incidents.filter(i => i.Status === 'Resolved').length
+                };
+                
+                createChart('incidentsChart', 'bar',
+                    Object.keys(statusCounts),
+                    Object.values(statusCounts),
+                    ['#ea4335', '#fbbc04', '#34a853']
+                );
+            } catch (error) {
+                console.error('Error loading incidents:', error);
+            }
+        }
+        
+        async function loadVulnerabilitiesData() {
+            try {
+                const response = await fetch('/api/vulnerabilities');
+                const vulns = await response.json();
+                
+                const severityCounts = {
+                    'Critical': vulns.filter(v => v.Severity === 'Critical').length,
+                    'High': vulns.filter(v => v.Severity === 'High').length,
+                    'Medium': vulns.filter(v => v.Severity === 'Medium').length,
+                    'Low': vulns.filter(v => v.Severity === 'Low').length
+                };
+                
+                createChart('vulnerabilitiesChart', 'bar',
+                    Object.keys(severityCounts),
+                    Object.values(severityCounts),
+                    ['#ea4335', '#f57c00', '#fbbc04', '#34a853']
+                );
+            } catch (error) {
+                console.error('Error loading vulnerabilities:', error);
+            }
+        }
+        
+        async function loadActivityData() {
+            try {
+                const response = await fetch('/api/threats');
+                const threats = await response.json();
+                
+                // Group by date (last 7 days)
+                const activityByDate = {};
+                const today = new Date();
+                
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    activityByDate[dateStr] = (activityByDate[dateStr] || 0);
+                }
+                
+                threats.forEach(t => {
+                    const dateStr = t.DetectedDate.split('T')[0];
+                    if (activityByDate.hasOwnProperty(dateStr)) {
+                        activityByDate[dateStr]++;
+                    }
+                });
+                
+                createChart('activityChart', 'line',
+                    Object.keys(activityByDate),
+                    Object.values(activityByDate),
+                    ['#667eea']
+                );
+            } catch (error) {
+                console.error('Error loading activity:', error);
+            }
+        }
+        
+        async function loadCriticalThreats() {
+            try {
+                const response = await fetch('/api/threats');
+                const threats = await response.json();
+                
+                const critical = threats
+                    .filter(t => t.Severity === 'Critical' || t.Severity === 'High')
+                    .sort((a, b) => new Date(b.DetectedDate) - new Date(a.DetectedDate))
+                    .slice(0, 5);
+                
+                const tbody = document.getElementById('criticalThreatsBody');
+                tbody.innerHTML = critical.length === 0 
+                    ? '<tr><td colspan="5" style="text-align:center;">No critical threats</td></tr>'
+                    : critical.map(t => `
+                        <tr>
+                            <td>${t.ThreatID}</td>
+                            <td>${t.Type}</td>
+                            <td><span class="badge badge-${t.Severity.toLowerCase()}">${t.Severity}</span></td>
+                            <td>${t.UserName}</td>
+                            <td>${formatDate(t.DetectedDate)}</td>
+                        </tr>
+                    `).join('');
+            } catch (error) {
+                console.error('Error loading critical threats:', error);
+            }
+        }
+        
+        function createChart(canvasId, type, labels, data, colors) {
+            // Destroy existing chart if it exists
+            if (chartsCache[canvasId]) {
+                chartsCache[canvasId].destroy();
+            }
+            
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const textColor = isDarkMode ? '#e0e0e0' : '#24292e';
+            const gridColor = isDarkMode ? '#444' : '#e1e4e8';
+            
+            chartsCache[canvasId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: type === 'doughnut' ? 'Severity Distribution' : 'Count',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: isDarkMode ? '#1a1a1a' : '#fff',
+                        borderWidth: 2,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: textColor,
+                                font: { size: 12 },
+                                padding: 15
+                            }
+                        }
+                    },
+                    scales: type !== 'doughnut' ? {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: textColor },
+                            grid: { color: gridColor }
+                        },
+                        x: {
+                            ticks: { color: textColor },
+                            grid: { color: gridColor, drawBorder: false }
+                        }
+                    } : undefined
+                }
+            });
+        }
+        
+        function toggleDarkMode() {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            
+            // Recreate charts with new colors
+            Object.keys(chartsCache).forEach(canvasId => {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    // Get current data
+                    const chart = chartsCache[canvasId];
+                    const type = chart.config.type;
+                    const labels = chart.data.labels;
+                    const data = chart.data.datasets[0].data;
+                    const colors = chart.data.datasets[0].backgroundColor;
+                    createChart(canvasId, type, labels, data, colors);
+                }
+            });
+            
+            showToast(isDark ? 'Dark mode enabled' : 'Light mode enabled', 'info');
+        }
+        
+        // Initialize dashboard
+        initDashboard();
+    </script>
+</body>
+</html>

@@ -17,6 +17,7 @@
                 <a href="incidents.html">🚨 Incidents</a>
                 <a href="vulnerabilities.html">🔓 Vulnerabilities</a>
                 <a href="updates.html">🔧 Security Updates</a>
+                <a href="dashboard.html">📊 Dashboard</a>
                 <a href="index.html" class="logout-btn">🚪 Logout</a>
             </nav>
         </aside>
@@ -30,6 +31,7 @@
                 <div class="user-info">
                     <span id="userName">User</span>
                     <span id="userRole" class="badge badge-warning">Security Analyst</span>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌓</button>
                 </div>
             </header>
             
@@ -56,9 +58,13 @@
             </div>
             
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
                     <h2>All Threat Logs</h2>
-                    <button class="btn btn-success" onclick="openModal()">➕ Log Threat</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-success" onclick="openModal()">➕ Log Threat</button>
+                        <button class="btn btn-secondary btn-sm" onclick="exportTableToCSV('threatsTable', 'threats')" title="Export to CSV">📥 CSV</button>
+                        <button class="btn btn-secondary btn-sm" onclick="exportTableToPDF('threatsTable', 'Threats Report')" title="Export to PDF">📄 PDF</button>
+                    </div>
                 </div>
                 
                 <div class="search-container">
@@ -184,6 +190,18 @@
         
         // Call on page load
         initMobileMenu();
+        
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            showToast(isDark ? 'Dark mode enabled' : 'Light mode enabled', 'info');
+        }
+        
+        // Initialize dark mode from storage
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
 
         const user = JSON.parse(sessionStorage.getItem('user'));
         if (!user) {

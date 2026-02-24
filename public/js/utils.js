@@ -325,3 +325,163 @@ function debounce(func, delay = 300) {
         timeoutId = setTimeout(() => func(...args), delay);
     };
 }
+
+// ============================================
+// EXPORT FUNCTIONS
+// ============================================
+
+function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) {
+        showToast('Table not found', 'error');
+        return;
+    }
+    
+    let csv = [];
+    
+    // Get headers
+    const headers = [];
+    table.querySelectorAll('thead th').forEach(th => {
+        if (!th.textContent.toLowerCase().includes('action')) {
+            headers.push(th.textContent.trim());
+        }
+    });
+    csv.push(headers.join(','));
+    
+    // Get rows (only visible ones)
+    table.querySelectorAll('tbody tr').forEach(row => {
+        if (row.style.display !== 'none' && !row.classList.contains('no-results')) {
+            const cells = [];
+            row.querySelectorAll('td').forEach((td, index) => {
+                if (index < headers.length) {
+                    let text = td.textContent.trim();
+                    // Remove badges and formatting
+                    text = text.replace(/[^\w\s\-()]/g, '');
+                    cells.push(`"${text}"`);
+                }
+            });
+            csv.push(cells.join(','));
+        }
+    });
+    
+    downloadFile(csv.join('\n'), filename + '.csv', 'text/csv');
+    showToast(`Exported to ${filename}.csv`, 'success');
+}
+
+async function exportTableToPDF(tableId, filename) {
+    try {
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            showToast('PDF export not available', 'error');
+            return;
+        }
+        
+        const doc = new jsPDF();
+        const table = document.getElementById(tableId);
+        
+        if (!table) {
+            showToast('Table not found', 'error');
+            return;
+        }
+        
+        // Prepare table data
+        const headers = [];
+        table.querySelectorAll('thead th').forEach(th => {
+            if (!th.textContent.toLowerCase().includes('action')) {
+                headers.push(th.textContent.trim());
+            }
+        });
+        
+        const rows = [];
+        table.querySelectorAll('tbody tr').forEach(row => {
+            if (row.style.display !== 'none' && !row.classList.contains('no-results')) {
+                const cells = [];
+                row.querySelectorAll('td').forEach((td, index) => {
+                    if (index < headers.length) {
+                        cells.push(td.textContent.trim());
+                    }
+                });
+                rows.push(cells);
+            }
+        });
+        
+        // Add title
+        doc.setFontSize(16);
+        doc.text(filename, 14, 10);
+        doc.setFontSize(10);
+        doc.text(`Generated on ${new Date().toLocaleString()}`, 14, 20);
+        
+        // Add table if autoTable is available
+        if (doc.autoTable) {
+            doc.autoTable({
+                head: [headers],
+                body: rows,
+                startY: 30,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [102, 126, 234],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold'
+                },
+                bodyStyles: {
+                    textColor: [50, 50, 50]
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                }
+            });
+        }
+        
+        doc.save(filename + '.pdf');
+        showToast(`Exported to ${filename}.pdf`, 'success');
+    } catch (error) {
+        showToast('Error exporting to PDF: ' + error.message, 'error');
+    }
+}
+
+function downloadFile(content, filename, type) {
+    const blob = new Blob([content], { type: type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ============================================
+// ROLE-BASED ACCESS
+// ============================================
+
+function hasRole(requiredRole) {
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    const userRole = user.Role || '';
+    
+    if (typeof requiredRole === 'string') {
+        return userRole === requiredRole;
+    }
+    
+    return requiredRole.includes(userRole);
+}
+
+function canAccess(requiredRoles) {
+    return hasRole(requiredRoles);
+}
+
+function hideIfNoRole(elementId, requiredRoles) {
+    const element = document.getElementById(elementId);
+    if (element && !canAccess(requiredRoles)) {
+        element.style.display = 'none';
+    }
+}
+
+function disableIfNoRole(elementId, requiredRoles) {
+    const element = document.getElementById(elementId);
+    if (element && !canAccess(requiredRoles)) {
+        element.disabled = true;
+        element.style.opacity = '0.5';
+        element.title = 'You do not have permission for this action';
+    }
+}
