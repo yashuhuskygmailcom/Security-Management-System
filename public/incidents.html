@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <button class="menu-toggle" id="menuToggle" style="display: none;">☰</button>
     <div class="dashboard">
         <aside class="sidebar">
             <h2>🛡️ Security Admin</h2>
@@ -117,6 +118,47 @@
     
     <script src="js/main.js"></script>
     <script>
+        function initMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (window.innerWidth <= 768) {
+                menuToggle.style.display = 'flex';
+            }
+            
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+            });
+            
+            sidebar.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                    }
+                });
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                    }
+                }
+            });
+            
+            window.addEventListener('resize', () => {
+                if (window.innerWidth <= 768) {
+                    menuToggle.style.display = 'flex';
+                    sidebar.classList.remove('active');
+                } else {
+                    menuToggle.style.display = 'none';
+                }
+            });
+        }
+        
+        initMobileMenu();
+        
         const user = JSON.parse(sessionStorage.getItem('user'));
         if (!user) {
             window.location.href = 'index.html';

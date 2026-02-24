@@ -672,53 +672,446 @@ table th {
 }
 
 /* ============================================
-   RESPONSIVE DESIGN
+   RESPONSIVE DESIGN - MOBILE FIRST
    ============================================ */
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .sidebar {
-        width: 100%;
-        position: relative;
-        height: auto;
-        padding: 20px;
+        width: 220px;
     }
+    
+    .main-content {
+        margin-left: 220px;
+        width: calc(100% - 220px);
+        padding: 24px 16px;
+    }
+    
+    .header h1 {
+        font-size: 26px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    table {
+        font-size: 13px;
+    }
+    
+    table th,
+    table td {
+        padding: 10px 6px;
+    }
+}
 
+@media (max-width: 768px) {
+    /* Sidebar toggle on mobile */
+    .sidebar {
+        position: fixed;
+        left: -260px;
+        width: 260px;
+        height: 100vh;
+        overflow-y: auto;
+        z-index: 999;
+        transition: left 0.3s ease;
+    }
+    
+    .sidebar.active {
+        left: 0;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .sidebar::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+    }
+    
+    .sidebar.active::before {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
     .main-content {
         margin-left: 0;
         width: 100%;
-        padding: 20px;
+        padding: 16px;
     }
-
+    
     .dashboard {
         flex-direction: column;
     }
-
+    
     .header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
+        gap: 12px;
+        margin-bottom: 20px;
+        border-bottom: none;
+        padding-bottom: 0;
     }
-
+    
+    .header h1 {
+        font-size: 22px;
+        margin: 0;
+    }
+    
+    .header h1 + p {
+        font-size: 12px !important;
+    }
+    
+    .user-info {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    /* Menu toggle button */
+    .menu-toggle {
+        display: block;
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 1000;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
     .stats-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
+        margin-bottom: 24px;
     }
-
-    .modal-content {
-        width: 95%;
-        padding: 30px;
+    
+    .stat-card {
+        padding: 20px;
     }
-
+    
+    .stat-card h3 {
+        font-size: 32px;
+    }
+    
+    .stat-card p {
+        font-size: 13px;
+    }
+    
+    .card {
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .card h2 {
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+    
+    .card > div:first-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .card button {
+        width: 100%;
+        margin-top: 8px;
+    }
+    
+    /* Tables - make scrollable on mobile */
     table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
         font-size: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
     }
-
+    
+    table thead {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
+    table tbody {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: 400px;
+    }
+    
+    table tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
     table th,
     table td {
-        padding: 12px 8px;
+        padding: 8px 6px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        font-size: 11px;
     }
-
-    .card {
+    
+    table th {
+        font-size: 11px;
+        background: #f6f8fa;
+    }
+    
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .action-buttons button {
+        width: 100%;
+        padding: 6px 8px !important;
+        font-size: 10px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Forms */
+    .form-group {
+        margin-bottom: 16px;
+    }
+    
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 10px 12px;
+        font-size: 14px;
+        border-radius: 8px;
+    }
+    
+    .form-group textarea {
+        min-height: 80px;
+    }
+    
+    /* Buttons */
+    .btn {
+        padding: 10px 16px;
+        font-size: 13px;
+        border-radius: 8px;
+        width: auto;
+    }
+    
+    .btn-sm {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    
+    .btn-primary {
+        width: 100%;
+    }
+    
+    /* Modals */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2000;
+        padding: 0;
+    }
+    
+    .modal-content {
+        position: absolute;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: auto;
+        max-height: 85vh;
+        border-radius: 20px 20px 0 0;
         padding: 20px;
+        animation: slideUpMobile 0.3s ease;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    @keyframes slideUpMobile {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+    
+    .modal-header {
+        margin-bottom: 16px;
+        gap: 12px;
+    }
+    
+    .modal-header h2 {
+        font-size: 18px;
+    }
+    
+    .close {
+        font-size: 24px;
+    }
+    
+    /* Filter section */
+    .filter-section {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .filter-section select {
+        width: 100%;
+    }
+    
+    /* Login box */
+    .login-box {
+        padding: 30px 20px;
+        max-width: 100%;
+        margin: 16px;
+        border-radius: 16px;
+    }
+    
+    .login-box h1 {
+        font-size: 22px;
+    }
+    
+    .login-box .logo {
+        font-size: 50px;
+        margin-bottom: 16px;
+    }
+    
+    .login-box p {
+        font-size: 12px !important;
+    }
+    
+    /* Hide animated backgrounds on mobile for better performance */
+    .login-container::before,
+    .login-container::after {
+        display: none;
+    }
+    
+    /* Badges */
+    .badge {
+        padding: 4px 10px;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-box {
+        padding: 24px 16px;
+        margin: 8px;
+    }
+    
+    .login-box h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+    
+    .login-box .logo {
+        font-size: 40px;
+        margin-bottom: 12px;
+    }
+    
+    .form-group {
+        margin-bottom: 14px;
+    }
+    
+    .form-group label {
+        font-size: 12px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 10px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .btn {
+        padding: 10px 14px;
+        font-size: 12px;
+    }
+    
+    .header h1 {
+        font-size: 20px;
+    }
+    
+    .header h1 + p {
+        font-size: 11px !important;
+    }
+    
+    .stat-card h3 {
+        font-size: 28px;
+    }
+    
+    .stat-card p {
+        font-size: 12px;
+    }
+    
+    table {
+        font-size: 11px;
+    }
+    
+    table th,
+    table td {
+        padding: 6px 4px;
+        font-size: 10px;
+    }
+    
+    .card {
+        padding: 12px;
+    }
+    
+    .card h2 {
+        font-size: 16px;
+    }
+    
+    .modal-content {
+        padding: 16px;
+        border-radius: 16px 16px 0 0;
+    }
+    
+    .modal-header h2 {
+        font-size: 16px;
+    }
+    
+    .sidebar h2 {
+        font-size: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .sidebar nav a {
+        padding: 12px 12px;
+        font-size: 13px;
+        margin-bottom: 6px;
     }
 }
 
