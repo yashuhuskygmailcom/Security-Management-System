@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users Management - Security Management System</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h2>🛡️ Security Admin</h2>
+            <nav>
+                <a href="users.html" class="active">👥 Users</a>
+                <a href="threats.html">⚠️ Threat Logs</a>
+                <a href="incidents.html">🚨 Incidents</a>
+                <a href="vulnerabilities.html">🔓 Vulnerabilities</a>
+                <a href="updates.html">🔧 Security Updates</a>
+                <a href="index.html" class="logout-btn">🚪 Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <h1>👥 Users Management</h1>
+                    <p style="color: #666; margin-top: 8px; font-size: 14px;">Manage system users and roles</p>
+                </div>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <span class="badge badge-true">Admin</span>
+                </div>
+            </header>
+            
+            <div id="message" class="message" style="display: none;"></div>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h2>All Users</h2>
+                    <button class="btn btn-success" onclick="openModal()">➕ Add User</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Add User Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New User</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <select id="role" name="role" required>
+                        <option value="Admin">Admin</option>
+                        <option value="Security Analyst">Security Analyst</option>
+                        <option value="User">User</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Save User</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/main.js"></script>
+    <script>
+        // Check if user is logged in
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'index.html';
+        }
+        
+        document.getElementById('userName').textContent = user.Name;
+        
+        // Load users
+        loadUsers();
+        
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const users = await response.json();
+                
+                const tbody = document.getElementById('usersTable');
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No users found</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = users.map(user => `
+                    <tr>
+                        <td>${user.UserID}</td>
+                        <td>${user.Name}</td>
+                        <td>${user.Email}</td>
+                        <td><span class="badge ${getRoleBadge(user.Role)}">${user.Role}</span></td>
+                        <td>${new Date(user.CreatedAt).toLocaleDateString()}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.UserID})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                showMessage('Error loading users', 'error');
+            }
+        }
+        
+        function getRoleBadge(role) {
+            switch(role) {
+                case 'Admin': return 'badge-critical';
+                case 'Security Analyst': return 'badge-warning';
+                default: return 'badge-medium';
+            }
+        }
+        
+        function openModal() {
+            document.getElementById('userModal').style.display = 'block';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('modalTitle').textContent = 'Add New User';
+        }
+        
+        function closeModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+        
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userId = document.getElementById('userId').value;
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const role = document.getElementById('role').value;
+            
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Name: name, Email: email, Role: role })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('User created successfully!', 'success');
+                    closeModal();
+                    loadUsers();
+                } else {
+                    showMessage(data.error || 'Error creating user', 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+            }
+        });
+        
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+            
+            try {
+                const response = await fetch(`/api/users/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('User deleted successfully!', 'success');
+                    loadUsers();
+                } else {
+                    const data = await response.json();
+                    showMessage(data.error || 'Error deleting user', 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+            }
+        }
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('userModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
+

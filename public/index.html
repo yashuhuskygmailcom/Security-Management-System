@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Management System - Login</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="logo">�</div>
+            <h1>Security Management System</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px; font-size: 14px;">
+                Enterprise Security & Threat Management Platform
+            </p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">📧 Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">👤 Select Role</label>
+                    <select id="role" name="role" required>
+                        <option value="">-- Choose Role --</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Security Analyst">Security Analyst</option>
+                        <option value="User">User</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">🚀 Sign In</button>
+            </form>
+            <div id="message" class="message" style="display: none;"></div>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #999;">
+                <p style="font-weight: 600; margin-bottom: 12px;">Demo Credentials:</p>
+                <p style="margin: 6px 0;"><strong>👨‍💼 Admin:</strong> admin@security.com</p>
+                <p style="margin: 6px 0;"><strong>👨‍🔬 Analyst:</strong> john@security.com</p>
+                <p style="margin: 6px 0;"><strong>👤 User:</strong> jane@security.com</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const role = document.getElementById('role').value;
+            const messageDiv = document.getElementById('message');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ Email: email, Role: role })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store user info in sessionStorage
+                    sessionStorage.setItem('user', JSON.stringify(data.user));
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 1000);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.error || 'Login failed';
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Error connecting to server';
+                messageDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
+

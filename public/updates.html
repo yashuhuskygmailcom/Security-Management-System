@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Updates - Security Management System</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h2>🛡️ Security Admin</h2>
+            <nav>
+                <a href="users.html">👥 Users</a>
+                <a href="threats.html">⚠️ Threat Logs</a>
+                <a href="incidents.html">🚨 Incidents</a>
+                <a href="vulnerabilities.html">🔓 Vulnerabilities</a>
+                <a href="updates.html" class="active">🔧 Security Updates</a>
+                <a href="index.html" class="logout-btn">🚪 Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <h1>🔧 Security Updates Management</h1>
+                    <p style="color: #666; margin-top: 8px; font-size: 14px;">Monitor and deploy security patches</p>
+                </div>
+                <div class="user-info">
+                    <span id="userName">User</span>
+                    <span id="userRole" class="badge badge-medium">User</span>
+                </div>
+            </header>
+            
+            <div id="message" class="message" style="display: none;"></div>
+            
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card" style="border-left-color: #667eea;">
+                    <h3 id="totalUpdates" style="color: #667eea;">0</h3>
+                    <p>Total Updates</p>
+                </div>
+                <div class="stat-card" style="border-left-color: #34a853;">
+                    <h3 id="recentUpdates" style="color: #34a853;">0</h3>
+                    <p>📅 This Month</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h2>All Security Updates</h2>
+                    <button class="btn btn-success" onclick="openModal()">➕ Add Security Update</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Vulnerability</th>
+                            <th>Release Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="updatesTable">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Add Security Update Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Security Update</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="updateForm">
+                <div class="form-group">
+                    <label for="vulnerabilityId">Related Vulnerability</label>
+                    <select id="vulnerabilityId" name="vulnerabilityId" required>
+                        <option value="">Select a vulnerability</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="releaseDate">Release Date</label>
+                    <input type="date" id="releaseDate" name="releaseDate" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Update</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/main.js"></script>
+    <script>
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'index.html';
+        }
+        
+        document.getElementById('userName').textContent = user.Name;
+        document.getElementById('userRole').textContent = user.Role;
+        
+        // Set default date to today
+        document.getElementById('releaseDate').valueAsDate = new Date();
+        
+        loadUpdates();
+        loadVulnerabilitiesForSelect();
+        
+        async function loadVulnerabilitiesForSelect() {
+            try {
+                const response = await fetch('/api/vulnerabilities');
+                const vulns = await response.json();
+                
+                const select = document.getElementById('vulnerabilityId');
+                vulns.forEach(vuln => {
+                    const option = document.createElement('option');
+                    option.value = vuln.VulnerabilityID;
+                    option.textContent = vuln.Description;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading vulnerabilities:', error);
+            }
+        }
+        
+        async function loadUpdates() {
+            try {
+                const response = await fetch('/api/updates');
+                const updates = await response.json();
+                
+                // Update stats
+                document.getElementById('totalUpdates').textContent = updates.length;
+                
+                const currentMonth = new Date().getMonth();
+                const currentYear = new Date().getFullYear();
+                const recentCount = updates.filter(u => {
+                    const releaseDate = new Date(u.ReleaseDate);
+                    return releaseDate.getMonth() === currentMonth && releaseDate.getFullYear() === currentYear;
+                }).length;
+                document.getElementById('recentUpdates').textContent = recentCount;
+                
+                const tbody = document.getElementById('updatesTable');
+                if (updates.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No security updates found</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = updates.map(update => `
+                    <tr>
+                        <td>${update.UpdateID}</td>
+                        <td>${update.VulnerabilityDescription}</td>
+                        <td>${new Date(update.ReleaseDate).toLocaleDateString()}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-danger btn-sm" onclick="deleteUpdate(${update.UpdateID})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                showMessage('Error loading updates', 'error');
+            }
+        }
+        
+        function openModal() {
+            document.getElementById('updateModal').style.display = 'block';
+            document.getElementById('updateForm').reset();
+            document.getElementById('releaseDate').valueAsDate = new Date();
+        }
+        
+        function closeModal() {
+            document.getElementById('updateModal').style.display = 'none';
+        }
+        
+        async function deleteUpdate(id) {
+            if (!confirm('Are you sure you want to delete this update?')) return;
+            
+            try {
+                const response = await fetch(`/api/updates/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('Update deleted successfully!', 'success');
+                    loadUpdates();
+                } else {
+                    const data = await response.json();
+                    showMessage(data.error || 'Error deleting update', 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+            }
+        }
+        
+        document.getElementById('updateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const vulnerabilityId = document.getElementById('vulnerabilityId').value;
+            const releaseDate = document.getElementById('releaseDate').value;
+            
+            try {
+                const response = await fetch('/api/updates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ VulnerabilityID: vulnerabilityId, ReleaseDate: releaseDate })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Security update added successfully!', 'success');
+                    closeModal();
+                    loadUpdates();
+                } else {
+                    showMessage(data.error || 'Error adding update', 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+            }
+        });
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('updateModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
+
